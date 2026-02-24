@@ -11,6 +11,7 @@
 | **טלפון** | 054-5664594 |
 | **תאריך מסירה** | פברואר 2026 |
 | **גרסה** | 1.0.0 — Production Ready |
+| **מאגר קוד** | https://github.com/yaakovsc/lomda |
 
 ---
 
@@ -105,32 +106,62 @@ Internet / LAN
 
 ## התקנה מהירה
 
+### שלב 1 — הורדה מ-GitHub
+
 ```bash
-# 1. התקן Docker
-sudo apt update && sudo apt install -y docker.io docker-compose-v2
+# התקן Docker ו-Git
+sudo apt update && sudo apt install -y docker.io docker-compose-v2 git openssl
 sudo usermod -aG docker $USER && newgrp docker
 
-# 2. הנח את תיקיית הפרויקט
+# שכפל את המאגר
 sudo mkdir -p /opt/giron-security
 sudo chown $USER:$USER /opt/giron-security
-# העתק את קבצי המערכת לתיקייה זו
-
-# 3. הגדר משתני סביבה
+git clone https://github.com/yaakovsc/lomda.git /opt/giron-security
 cd /opt/giron-security
-cp .env.example .env
-nano .env        # שנה DB_PASSWORD, JWT_SECRET, SMTP_PASS, ADMIN_PASSWORD
+```
 
-# 4. צור תעודת SSL (לרשת פנימית)
+### שלב 2 — הגדרת סיסמאות וטוקנים
+
+```bash
+# צור מפתחות אקראיים מאובטחים
+echo "=== העתק ערכים אלה ל-.env ==="
+echo "JWT_SECRET:      $(openssl rand -hex 32)"
+echo "SESSION_SECRET:  $(openssl rand -hex 32)"
+echo "DB_PASSWORD:     $(openssl rand -base64 20 | tr -dc 'A-Za-z0-9!@#$' | head -c 20)"
+
+# צור קובץ .env ועדכן את הערכים שהודפסו למעלה
+cp .env.example .env
+nano .env
+```
+
+**ערכים חובה ב-.env:**
+
+| משתנה | מה לרשום |
+|--------|----------|
+| `DB_PASSWORD` | פלט DB_PASSWORD מהפקודה למעלה |
+| `JWT_SECRET` | פלט JWT_SECRET מהפקודה למעלה |
+| `SESSION_SECRET` | פלט SESSION_SECRET מהפקודה למעלה |
+| `FRONTEND_URL` | `https://security.giron.co.il` |
+| `ADMIN_EMAIL` | אימייל המנהל הראשי |
+| `ADMIN_PASSWORD` | סיסמה חזקה — **תשנה לאחר כניסה ראשונה!** |
+| `SMTP_HOST` | שרת המייל (`smtp.office365.com` / `smtp.gmail.com`) |
+| `SMTP_USER` | כתובת מייל שולח |
+| `SMTP_PASS` | סיסמת חשבון המייל |
+
+### שלב 3 — SSL, הפעלה ובדיקה
+
+```bash
+# SSL עצמי-חתום (לרשת פנימית)
 cd nginx && ./generate-ssl.sh && cd ..
 
-# 5. הפעל
+# הפעל
 docker compose up -d --build
 
-# 6. בדוק
+# בדוק
 docker compose ps
 ```
 
-**מדריך מפורט:** ראה `docs/INSTALL_GUIDE.md`
+**מדריך מפורט עם כל הפרמטרים:** `docs/INSTALL_GUIDE.md`
 
 ---
 

@@ -21,58 +21,97 @@ newgrp docker
 
 ---
 
-## שלב 1: הכנת הסביבה
+## שלב 1: הורדת קוד המקור מ-GitHub
 
 ```bash
 # צור ספרייה לפרויקט
 sudo mkdir -p /opt/giron-security
 sudo chown $USER:$USER /opt/giron-security
-cd /opt/giron-security
 
-# העתק את קבצי הפרויקט (מ-USB, Git, SCP וכד')
-git clone <repository-url> .
-# או:
-# scp -r ./lomda/* user@server:/opt/giron-security/
+# שכפל את המאגר
+git clone https://github.com/yaakovsc/lomda.git /opt/giron-security
+
+cd /opt/giron-security
 ```
+
+> 💡 **עדכונים עתידיים:** לעדכון הקוד בלבד (ללא מחיקת נתונים) הרץ:
+> ```bash
+> cd /opt/giron-security
+> git pull origin main
+> docker compose up -d --build
+> ```
 
 ---
 
-## שלב 2: הגדרת משתני סביבה
+## שלב 2: הגדרת סיסמאות וטוקנים
+
+### 2א — יצירת מפתחות אקראיים
+
+פקודות אלה יצרו מחרוזות מאובטחות — הרץ כל אחת ושמור את הפלט:
+
+```bash
+# מפתח JWT (חתימת טוקני כניסה)
+echo "JWT_SECRET:" && openssl rand -hex 32
+
+# מפתח Session
+echo "SESSION_SECRET:" && openssl rand -hex 32
+
+# סיסמת מסד נתונים
+echo "DB_PASSWORD:" && openssl rand -base64 20 | tr -dc 'A-Za-z0-9!@#$' | head -c 20; echo
+```
+
+### 2ב — יצירת קובץ .env
 
 ```bash
 cp .env.example .env
 nano .env
 ```
 
-**ערכים שחובה לשנות:**
+### 2ג — ערכים חובה לשנות
+
+| משתנה | תיאור | דוגמה / הוראה |
+|--------|--------|---------------|
+| `DB_PASSWORD` | סיסמת PostgreSQL | פלט הפקודה מ-2א |
+| `JWT_SECRET` | חתימת JWT | פלט הפקודה מ-2א |
+| `SESSION_SECRET` | מפתח session | פלט הפקודה מ-2א |
+| `FRONTEND_URL` | כתובת המערכת | `https://security.giron.co.il` |
+| `ADMIN_EMAIL` | אימייל מנהל ראשי | `admin@giron.co.il` |
+| `ADMIN_PASSWORD` | סיסמת מנהל ראשי | בחר סיסמה חזקה — **שנה לאחר כניסה ראשונה!** |
+| `SMTP_HOST` | שרת דואל | `smtp.office365.com` / `smtp.gmail.com` |
+| `SMTP_USER` | חשבון שליחת מייל | `security-training@giron.co.il` |
+| `SMTP_PASS` | סיסמת חשבון מייל | סיסמת חשבון ה-SMTP |
+| `EMAIL_FROM` | שם שולח | `"הדרכת אבטחה גירון" <security-training@giron.co.il>` |
+
+### 2ד — קובץ .env לאחר עריכה (דוגמה מלאה)
 
 ```env
-# 1. סיסמת מסד הנתונים — צור סיסמה חזקה (20+ תווים)
-DB_PASSWORD=SuperSecureDBPassword2024!XYZ
-
-# 2. מפתח JWT — צור מחרוזת אקראית ארוכה (64+ תווים)
-#    הרץ:  openssl rand -hex 32
-JWT_SECRET=a1b2c3d4e5f6...   # החלף בפלט של openssl rand -hex 32
-
-# 3. כתובת המערכת
+NODE_ENV=production
+PORT=3001
 FRONTEND_URL=https://security.giron.co.il
 
-# 4. פרטי מנהל ראשי
-ADMIN_EMAIL=admin@giron.co.il
-ADMIN_PASSWORD=AdminPassword@2024!  # שנה מיד לאחר כניסה ראשונה
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=giron_security
+DB_USER=giron_user
+DB_PASSWORD=Xk9#mP2$qLr8vN4w     ← החלף בפלט מ-2א
 
-# 5. הגדרות דואל (SMTP)
-SMTP_HOST=smtp.office365.com     # לדוגמה — עדכן לפי הספק שלך
+JWT_SECRET=3f8a1b2c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a  ← 64 תווים hex
+JWT_EXPIRES_IN=8h
+
+SMTP_HOST=smtp.office365.com
 SMTP_PORT=587
+SMTP_SECURE=false
 SMTP_USER=security-training@giron.co.il
-SMTP_PASS=YourEmailPassword
-EMAIL_FROM='"הדרכת אבטחה גירון" <security-training@giron.co.il>'
-```
+SMTP_PASS=your-email-password-here
+EMAIL_FROM='"מערכת הדרכת אבטחה - גירון" <security-training@giron.co.il>'
 
-**יצירת JWT_SECRET:**
-```bash
-openssl rand -hex 32
-# העתק את הפלט ל-JWT_SECRET
+ADMIN_EMAIL=admin@giron.co.il
+ADMIN_PASSWORD=Admin@Giron2026!   ← שנה לאחר כניסה ראשונה!
+ADMIN_NAME=מנהל מערכת
+
+BCRYPT_ROUNDS=12
+SESSION_SECRET=2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d  ← החלף בפלט מ-2א
+LOG_LEVEL=info
 ```
 
 ---
