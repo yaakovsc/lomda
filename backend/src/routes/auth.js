@@ -36,4 +36,12 @@ router.post('/reset-password', validateInput([
 
 router.get('/me', authenticateToken, authController.getMe);
 
+// Heartbeat — called by frontend every 2 min while tab is visible
+// This is the ONLY source that marks a user as "active" for maintenance scheduling
+router.get('/ping', authenticateToken, (req, res) => {
+  const updateService = require('../services/updateService');
+  updateService.markUserActivity(req.user.id);
+  res.json({ ok: true });
+});
+
 module.exports = router;

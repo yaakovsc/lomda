@@ -1,6 +1,5 @@
 const jwt = require('jsonwebtoken');
 const logger = require('../config/logger');
-const updateService = require('../services/updateService');
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -13,7 +12,6 @@ const authenticateToken = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
-    updateService.markUserActivity(decoded.id);
     next();
   } catch (error) {
     logger.warn('Invalid token attempt', { ip: req.ip, path: req.path });

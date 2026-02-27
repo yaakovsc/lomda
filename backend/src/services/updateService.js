@@ -100,7 +100,7 @@ function markUserActivity(userId) {
 }
 
 function getActiveUserCount() {
-  const threshold = Date.now() - 5 * 60 * 1000; // 5 minutes
+  const threshold = Date.now() - 3 * 60 * 1000; // 3 minutes (heartbeat fires every 2 min)
   let count = 0;
   for (const [, lastActivity] of state.activeUsers) {
     if (lastActivity > threshold) count++;
