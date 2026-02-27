@@ -13,6 +13,8 @@ const authRoutes = require('./routes/auth');
 const trainingRoutes = require('./routes/training');
 const examRoutes = require('./routes/exam');
 const adminRoutes = require('./routes/admin');
+const updateRoutes = require('./routes/update');
+const maintenanceMiddleware = require('./middleware/maintenance');
 
 const app = express();
 
@@ -45,12 +47,16 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ─── Maintenance Mode ─────────────────────────────────────────────
+app.use(maintenanceMiddleware);
+
 // ─── API Routes ───────────────────────────────────────────────────
 app.use('/api', apiLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/training', trainingRoutes);
 app.use('/api/exam', examRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin/update', updateRoutes);
 
 // ─── Error Handling ───────────────────────────────────────────────
 app.use(notFound);

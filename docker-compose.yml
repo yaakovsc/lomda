@@ -38,6 +38,8 @@ services:
     volumes:
       - backend_logs:/app/logs
       - uploaded_logos:/app/uploads
+      - ./triggers:/app/triggers
+      - ./backups:/app/backups:ro
     networks:
       - giron_network
     healthcheck:

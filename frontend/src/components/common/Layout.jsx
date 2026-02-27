@@ -1,14 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../utils/api';
 
 const IDLE_MS = 5 * 60 * 1000; // 5 minutes of inactivity → force logout
 import {
   Home, BarChart2,
-  Users, Settings, LogOut, Menu, X, Shield
+  Users, Settings, LogOut, Menu, X, Shield, CloudDownload
 } from 'lucide-react';
 
-const NavLink = ({ to, icon: Icon, label, onClick }) => {
+const NavLink = ({ to, icon: Icon, label, onClick, badge }) => {
   const location = useLocation();
   const active = location.pathname === to || location.pathname.startsWith(to + '/');
   return (
@@ -27,7 +28,13 @@ const NavLink = ({ to, icon: Icon, label, onClick }) => {
       onMouseOut={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
     >
       <Icon size={18} />
-      {label}
+      <span style={{ flex: 1 }}>{label}</span>
+      {badge && (
+        <span style={{
+          width: 10, height: 10, borderRadius: '50%', background: 'var(--danger)',
+          flexShrink: 0, animation: 'pulseBadge 1.4s ease-in-out infinite',
+        }} />
+      )}
     </Link>
   );
 };
@@ -36,7 +43,24 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
   const timerRef = useRef(null);
+  const isAdmin = user?.role === 'admin';
+
+  // Poll for update status (admin only, every 5 min)
+  const checkUpdate = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const { data } = await api.get('/admin/update/status');
+      setUpdateAvailable(!!data.updateAvailable);
+    } catch { /* ignore */ }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    checkUpdate();
+    const interval = setInterval(checkUpdate, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [checkUpdate]);
 
   // ── Idle timeout: logout after 5 minutes of no activity ──────
   useEffect(() => {
@@ -64,8 +88,6 @@ export default function Layout({ children }) {
     logout();
     navigate('/login');
   };
-
-  const isAdmin = user?.role === 'admin';
 
   const sidebarContent = (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -98,6 +120,7 @@ export default function Layout({ children }) {
             <NavLink to="/admin/users" icon={Users} label="ניהול עובדים" onClick={() => setMobileOpen(false)} />
             <NavLink to="/admin/exam-config" icon={Settings} label="הגדרות בחינה" onClick={() => setMobileOpen(false)} />
             <NavLink to="/admin/report" icon={BarChart2} label="דוח ציות" onClick={() => setMobileOpen(false)} />
+            <NavLink to="/admin/update" icon={CloudDownload} label="עדכון מערכת" onClick={() => setMobileOpen(false)} badge={updateAvailable} />
           </>
         )}
       </nav>
@@ -185,6 +208,10 @@ export default function Layout({ children }) {
           .desktop-sidebar { display: none !important; }
           .mobile-header { display: flex !important; }
           .main-content { margin-right: 0 !important; padding: 4rem 1rem 1rem !important; }
+        }
+        @keyframes pulseBadge {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.8); }
         }
       `}</style>
     </div>

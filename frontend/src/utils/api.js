@@ -19,12 +19,16 @@ api.interceptors.request.use((config) => {
 });
 
 // Handle 401 — redirect to login (but not for the login endpoint itself)
+// Handle 503 maintenance — dispatch event for overlay
 api.interceptors.response.use(
   (res) => res,
   (error) => {
     if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
       _token = null;
       window.location.href = '/login?expired=1';
+    }
+    if (error.response?.status === 503 && error.response?.data?.maintenance) {
+      window.dispatchEvent(new CustomEvent('maintenance', { detail: error.response.data }));
     }
     return Promise.reject(error);
   }

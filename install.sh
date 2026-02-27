@@ -83,6 +83,7 @@ else
 fi
 
 mkdir -p nginx/ssl logs backups
+mkdir -p /opt/giron-security/triggers /opt/giron-security/backups /opt/giron-security/logs
 log "תיקיות נוצרו"
 
 # ── הגדרת .env ─────────────────────────────────────────────
@@ -169,9 +170,23 @@ echo "  3. שנה את סיסמת המנהל מיד!"
 echo "  4. עבור ל'הגדרות בחינה' — סמן שאלות (מומלץ 20)"
 echo "  5. הוסף עובדים מ'ניהול עובדים'"
 echo ""
+echo -e "${YELLOW}עדכון אוטומטי — הגדרת cron:${NC}"
+
+# Install update-watcher cron (idempotent)
+CRON_LINE="* * * * * ${INSTALL_DIR}/update-watcher.sh >> /opt/giron-security/logs/update-watcher.log 2>&1"
+if ! crontab -l 2>/dev/null | grep -qF "update-watcher.sh"; then
+    (crontab -l 2>/dev/null; echo "$CRON_LINE") | crontab -
+    log "update-watcher.sh נוסף ל-crontab (כל דקה)"
+else
+    log "update-watcher cron כבר מוגדר"
+fi
+
+# Make scripts executable
+chmod +x "${INSTALL_DIR}/update-watcher.sh" "${INSTALL_DIR}/release.sh" 2>/dev/null || true
+
+echo ""
 echo -e "${YELLOW}גיבוי אוטומטי — הוסף ל-crontab (crontab -e):${NC}"
-echo "  0 2 * * * docker exec giron_postgres pg_dump -U giron_user giron_security | gzip > /backups/giron-\$(date +\\%F).sql.gz"
-echo "  0 3 * * * find /backups -name 'giron-*.sql.gz' -mtime +30 -delete"
+echo "  0 3 * * * find /opt/giron-security/backups -name '*.sql.gz' -mtime +30 -delete"
 echo ""
 echo -e "  פיתוח ויישום: קובי שלזינגר — ליווי פרויקטים — 054-5664594"
 echo ""

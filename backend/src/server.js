@@ -7,6 +7,7 @@ const { verifyConnection: verifyEmail } = require('./config/email');
 const logger = require('./config/logger');
 const { User, Question, ExamAttempt, ExamConfig } = require('./models');
 const { seedQuestions } = require('./utils/seed');
+const updateService = require('./services/updateService');
 
 const PORT = process.env.PORT || 3001;
 
@@ -49,6 +50,7 @@ const start = async () => {
     await connectDB();
     await initializeDatabase();
     await verifyEmail();
+    updateService.startPolling();
 
     const server = app.listen(PORT, '0.0.0.0', () => {
       logger.info(`Girón Security Training API started`, {
