@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
 import api from '../utils/api';
 import {
   ClipboardList, AlertTriangle, ChevronLeft, CheckCircle, Send,
-  Lock, BookOpen, ArrowLeft
+  Lock, BookOpen,
 } from 'lucide-react';
 
 // ─── Exam Question Component ────────────────────────────────────
@@ -125,8 +124,9 @@ const ExamQuestion = ({ question, questionNum, total, onAnswer }) => {
 
 // ─── Main Exam Page ─────────────────────────────────────────────
 export default function Exam() {
-  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const trainingType = searchParams.get('type') || 'cyber';
 
   const [state, setState] = useState('loading'); // loading | choice | instructions | active | submitting | done | error
   const [attemptId, setAttemptId] = useState(null);
@@ -137,26 +137,36 @@ export default function Exam() {
   const [results, setResults] = useState(null);
 
   useEffect(() => {
-    if (!user?.trainingCompletedAt) {
-      navigate('/training');
-      return;
-    }
-    if (user?.examPassed) {
-      navigate('/results');
-      return;
-    }
-    if (user?.examLockedByAdmin) {
-      setError('הגישה לבחינה חסומה. אנא פנה למנהל המערכת לשחרור.');
-      setState('error');
-      return;
-    }
-    setState('choice');
-  }, [user]);
+    const init = async () => {
+      try {
+        const { data } = await api.get('/training/my-progress');
+        const progress = data.find(p => p.trainingType === trainingType) || {};
+
+        if (!progress.trainingCompletedAt) {
+          navigate(`/training?type=${trainingType}`);
+          return;
+        }
+        if (progress.examPassed) {
+          navigate(`/results?type=${trainingType}`);
+          return;
+        }
+        if (progress.examLockedByAdmin) {
+          setError('הגישה לבחינה חסומה. אנא פנה למנהל המערכת לשחרור.');
+          setState('error');
+          return;
+        }
+      } catch (err) {
+        // If progress fetch fails, let the server guard startExam
+      }
+      setState('choice');
+    };
+    init();
+  }, [trainingType]);
 
   const startExam = async () => {
     setState('loading');
     try {
-      const { data } = await api.post('/exam/start');
+      const { data } = await api.post(`/exam/start?type=${trainingType}`);
       setAttemptId(data.attemptId);
       setCurrentQuestion(data.question);
       setTotalQuestions(data.totalQuestions);
@@ -177,7 +187,6 @@ export default function Exam() {
         setState('submitting');
         const res = await api.post(`/exam/${attemptId}/submit`);
         setResults(res.data);
-        await refreshUser();
         setState('done');
       } else {
         setCurrentQuestion(data.nextQuestion);
@@ -217,9 +226,11 @@ export default function Exam() {
   }
 
   if (state === 'done' && results) {
-    navigate('/results');
+    navigate(`/results?type=${trainingType}`);
     return null;
   }
+
+  const moduleTitle = trainingType === 'haras' ? 'מניעת הטרדה מינית' : trainingType === 'safety' ? 'בטיחות במקום העבודה' : 'אבטחת מידע';
 
   return (
     <Layout>
@@ -228,12 +239,12 @@ export default function Exam() {
         <div style={{ marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
             <div style={{ width: 100, height: 100, background: 'white', borderRadius: '20px', padding: '0.6rem', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
-              <img src="/giron.png" alt="גירון" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <img src="/bakie.png" alt="בָּקִיא" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
             <ClipboardList size={22} color="var(--primary)" />
-            <h1 style={{ fontSize: '1.4rem' }}>בחינת אבטחת מידע</h1>
+            <h1 style={{ fontSize: '1.4rem' }}>בחינה — {moduleTitle}</h1>
           </div>
         </div>
 
@@ -256,7 +267,7 @@ export default function Exam() {
               </button>
               <button
                 className="btn btn-outline btn-lg btn-block"
-                onClick={() => navigate('/training?review=1')}
+                onClick={() => navigate(`/training?review=1&type=${trainingType}`)}
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
               >
                 <BookOpen size={18} />

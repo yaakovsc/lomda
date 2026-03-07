@@ -1,4 +1,4 @@
-const { User, Question, ExamAttempt, ExamConfig } = require('../models');
+const { User, Question, ExamAttempt, ExamConfig, UserModuleProgress } = require('../models');
 const logger = require('../config/logger');
 const emailService = require('../services/emailService');
 
@@ -15,25 +15,31 @@ const examController = {
   // Start a new exam attempt
   async startExam(req, res, next) {
     try {
+      const trainingType = req.body.type || req.query.type || 'cyber';
       const user = await User.findByPk(req.user.id);
 
+      const [progress] = await UserModuleProgress.findOrCreate({
+        where: { userId: user.id, trainingType },
+        defaults: {},
+      });
+
       // Must complete training first
-      if (!user.trainingCompletedAt) {
+      if (!progress.trainingCompletedAt) {
         return res.status(403).json({ error: 'יש להשלים את ההדרכה לפני הבחינה' });
       }
 
       // Check if already passed
-      if (user.examPassed) {
+      if (progress.examPassed) {
         return res.status(400).json({ error: 'כבר עברת את הבחינה בהצלחה' });
       }
 
-      // Block if locked (started but exited, or already attempted) — admin must release
-      if (user.examLockedByAdmin) {
+      // Block if locked — admin must release
+      if (progress.examLockedByAdmin) {
         return res.status(403).json({ error: 'הגישה לבחינה חסומה. אנא פנה למנהל המערכת לשחרור.' });
       }
 
-      // Load exam config
-      const config = await ExamConfig.findByPk(1);
+      // Load exam config for this module
+      const config = await ExamConfig.findOne({ where: { trainingType } });
       if (!config || config.selectedQuestionIds.length < 10) {
         return res.status(503).json({ error: 'הבחינה טרם הוגדרה על ידי המנהל. אנא פנה למנהל המערכת.' });
       }
@@ -66,14 +72,15 @@ const examController = {
         totalQuestions: snapshot.length,
         answers: {},
         currentQuestion: 0,
+        trainingType,
       });
 
-      await User.update(
-        { examAttempts: (user.examAttempts || 0) + 1, examLockedByAdmin: true },
-        { where: { id: user.id } }
-      );
+      await progress.update({
+        examAttempts: (progress.examAttempts || 0) + 1,
+        examLockedByAdmin: true,
+      });
 
-      logger.audit('EXAM_STARTED', user.id, { attemptId: attempt.id });
+      logger.audit('EXAM_STARTED', user.id, { attemptId: attempt.id, trainingType });
 
       res.json({
         attemptId: attempt.id,
@@ -143,12 +150,14 @@ const examController = {
       if (!attempt) return res.status(404).json({ error: 'ניסיון בחינה לא נמצא' });
       if (attempt.isSubmitted) return res.status(400).json({ error: 'הבחינה כבר הוגשה' });
 
+      const trainingType = attempt.trainingType || 'cyber';
+
       // Load questions with correct answers for grading
       const questionIds = attempt.questionsSnapshot.map((q) => q.id);
       const questions = await Question.findAll({ where: { id: questionIds } });
       const qMap = Object.fromEntries(questions.map((q) => [q.id, q]));
 
-      const config = await ExamConfig.findByPk(1);
+      const config = await ExamConfig.findOne({ where: { trainingType } });
       const passingScore = config?.passingScore || 8;
 
       let score = 0;
@@ -185,7 +194,13 @@ const examController = {
       });
 
       const user = await User.findByPk(req.user.id);
-      await user.update({
+
+      const [progress] = await UserModuleProgress.findOrCreate({
+        where: { userId: user.id, trainingType },
+        defaults: {},
+      });
+
+      await progress.update({
         examCompletedAt: new Date(),
         examScore: score,
         examPassed: passed,
@@ -196,6 +211,7 @@ const examController = {
         score,
         total: attempt.totalQuestions,
         passed,
+        trainingType,
       });
 
       // Send result email asynchronously
@@ -216,8 +232,9 @@ const examController = {
   // Get the result of the most recent completed attempt
   async getMyResult(req, res, next) {
     try {
+      const trainingType = req.query.type || 'cyber';
       const attempt = await ExamAttempt.findOne({
-        where: { userId: req.user.id, isSubmitted: true },
+        where: { userId: req.user.id, isSubmitted: true, trainingType },
         order: [['completedAt', 'DESC']],
       });
 

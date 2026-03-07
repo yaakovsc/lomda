@@ -1,13 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import Layout from '../components/common/Layout';
 import api from '../utils/api';
-import { slides } from '../data/slides';
 import {
   ChevronLeft, ChevronRight, CheckCircle, XCircle,
   BookOpen, HelpCircle, Trophy,
 } from 'lucide-react';
+
+// scenario question → image src (s21–s26 for safety, s21–s26 for haras)
+function scenarioImageSrc(question) {
+  const idx = 20 + (question.sortOrder || 1);
+  if (question.trainingType === 'safety') return `/slide-images-safety/s${idx}.png`;
+  if (question.trainingType === 'haras')  return `/slide-images-haras/s${idx}.jpg`;
+  return null;
+}
 
 // ─── Interactive Question Component ────────────────────────────
 const InteractiveQuestion = ({ question, onNext, onPrev, isFirst }) => {
@@ -35,8 +41,19 @@ const InteractiveQuestion = ({ question, onNext, onPrev, isFirst }) => {
     selected.length === question.correctAnswers.length &&
     [...selected].sort().join(',') === [...question.correctAnswers].sort().join(',');
 
+  const imgSrc = scenarioImageSrc(question);
+
   return (
     <div style={{ animation: 'slideInRight 0.35s ease' }}>
+      {imgSrc && (
+        <div style={{
+          borderRadius: 'var(--radius-sm)', overflow: 'hidden',
+          marginBottom: '1.25rem', display: 'flex', justifyContent: 'center',
+          background: '#f8fafc', border: '1px solid var(--border)',
+        }}>
+          <img src={imgSrc} alt="" style={{ maxHeight: 400, maxWidth: '100%', objectFit: 'contain', display: 'block' }} />
+        </div>
+      )}
       <div style={{
         background: '#f0f4ff', borderRadius: 'var(--radius-sm)',
         padding: '1rem 1.25rem', marginBottom: '1.25rem',
@@ -123,10 +140,18 @@ const InteractiveQuestion = ({ question, onNext, onPrev, isFirst }) => {
   );
 };
 
-// slide id (1-based) → zero-padded 3-digit index, picks jpg for 1-10, png for 11-26
-function slideImageSrc(slideId) {
-  const idx = String(slideId - 1).padStart(3, '0');
-  return slideId <= 10 ? `/slide-images/slide-${idx}.jpg` : `/slide-images/slide-${idx}.png`;
+// slide object → image src based on trainingType and orderIndex
+function slideImageSrc(slide) {
+  if (slide.trainingType === 'haras') {
+    return `/slide-images-haras/s${slide.orderIndex}.jpg`;
+  }
+  if (slide.trainingType === 'safety') {
+    return `/slide-images-safety/s${slide.orderIndex}.png`;
+  }
+  const idx = String(slide.orderIndex - 1).padStart(3, '0');
+  return slide.orderIndex <= 10
+    ? `/slide-images/slide-${idx}.jpg`
+    : `/slide-images/slide-${idx}.png`;
 }
 
 // ─── Slide Component ────────────────────────────────────────────
@@ -144,9 +169,9 @@ const SlideView = ({ slide, onNext, onPrev, isFirst, isLast, completing }) => {
         justifyContent: 'center',
       }}>
         <img
-          src={slideImageSrc(slide.id)}
+          src={slideImageSrc(slide)}
           alt={slide.title}
-          style={{ maxHeight: 200, maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+          style={{ maxHeight: slide.trainingType === 'safety' ? 400 : 200, maxWidth: '100%', objectFit: 'contain', display: 'block' }}
         />
       </div>
 
@@ -195,12 +220,11 @@ const SlideView = ({ slide, onNext, onPrev, isFirst, isLast, completing }) => {
 
 // ─── Main Training Page ─────────────────────────────────────────
 export default function Training() {
-  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reviewMode = searchParams.get('review') === '1';
+  const trainingType = searchParams.get('type') || 'cyber';
 
-  const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loadingDone, setLoadingDone] = useState(false);
   const [completing, setCompleting] = useState(false);
@@ -209,21 +233,23 @@ export default function Training() {
   useEffect(() => {
     const init = async () => {
       try {
-        await api.post('/training/start');
-        const { data } = await api.get('/training/questions');
-        setQuestions(data);
+        const startRes = await api.post(`/training/start?type=${trainingType}`);
+        const [slidesRes, questionsRes] = await Promise.all([
+          api.get(`/training/slides?type=${trainingType}`),
+          api.get(`/training/questions?type=${trainingType}`),
+        ]);
 
         const combined = [
-          ...slides.map(s => ({ type: 'slide', data: s })),
-          ...data.map(q => ({ type: 'question', data: q })),
+          ...slidesRes.data.map(s => ({ type: 'slide', data: s })),
+          ...questionsRes.data.map(q => ({ type: 'question', data: q })),
         ];
         setCurriculum(combined);
 
-        // Review mode (came from exam choice screen) → always start from beginning
+        // Review mode → always start from beginning
         if (reviewMode) {
           setCurrentIndex(0);
         } else {
-          const savedProgress = user?.trainingSlideProgress || 0;
+          const savedProgress = startRes.data.slideProgress || 0;
           setCurrentIndex(savedProgress < combined.length ? savedProgress : 0);
         }
       } catch (err) {
@@ -233,11 +259,11 @@ export default function Training() {
       }
     };
     init();
-  }, []);
+  }, [trainingType]);
 
   const saveProgress = useCallback(async (index) => {
-    try { await api.post('/training/progress', { slideIndex: index }); } catch {}
-  }, []);
+    try { await api.post(`/training/progress?type=${trainingType}`, { slideIndex: index }); } catch {}
+  }, [trainingType]);
 
   const goNext = async () => {
     const next = currentIndex + 1;
@@ -256,9 +282,8 @@ export default function Training() {
   const handleComplete = async () => {
     setCompleting(true);
     try {
-      await api.post('/training/complete');
-      await refreshUser();
-      navigate('/exam');
+      await api.post(`/training/complete?type=${trainingType}`);
+      navigate(`/exam?type=${trainingType}`);
     } catch {
       setCompleting(false);
     }
@@ -278,6 +303,7 @@ export default function Training() {
   const current = curriculum[currentIndex];
   const overallProgress = Math.round(((currentIndex + 1) / curriculum.length) * 100);
   const isLast = currentIndex === curriculum.length - 1;
+  const moduleTitle = trainingType === 'haras' ? 'מניעת הטרדה מינית' : trainingType === 'safety' ? 'בטיחות במקום העבודה' : 'אבטחת מידע';
 
   return (
     <Layout>
@@ -286,12 +312,12 @@ export default function Training() {
         <div style={{ marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
             <div style={{ width: 100, height: 100, background: 'white', borderRadius: '20px', padding: '0.6rem', boxShadow: '0 4px 24px rgba(0,0,0,0.2)' }}>
-              <img src="/giron.png" alt="גירון" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <img src="/bakie.png" alt="בָּקִיא" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.65rem' }}>
             <BookOpen size={22} color="var(--primary)" />
-            <h1 style={{ fontSize: '1.4rem' }}>מודול הדרכה</h1>
+            <h1 style={{ fontSize: '1.4rem' }}>הדרכה — {moduleTitle}</h1>
             <span style={{ marginRight: 'auto', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
               {currentIndex + 1} / {curriculum.length}
             </span>
@@ -326,7 +352,7 @@ export default function Training() {
           )}
         </div>
 
-        {/* Progress pills — uniform color */}
+        {/* Progress pills */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', justifyContent: 'center' }}>
           {curriculum.map((item, i) => {
             const done = i < currentIndex;

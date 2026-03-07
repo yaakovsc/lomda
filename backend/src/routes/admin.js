@@ -35,6 +35,10 @@ router.post('/users/:id/reset-exam', adminController.resetUserExam);
 router.post('/users/:id/reset-training', adminController.resetUserTraining);
 router.post('/users/:id/reset-password', adminController.resetUserPassword);
 
+// Slides
+router.get('/slides', adminController.getSlides);
+router.put('/slides/:id', adminController.updateSlide);
+
 // Questions
 router.get('/questions', adminController.getQuestions);
 router.put('/questions/:id', adminController.updateQuestion);
@@ -42,6 +46,7 @@ router.put('/questions/:id', adminController.updateQuestion);
 // Exam Config
 router.get('/exam-config', adminController.getExamConfig);
 router.put('/exam-config', adminController.updateExamConfig);
+router.patch('/exam-config/toggle', adminController.toggleModule);
 
 // Logo upload
 router.post('/logo', upload.single('logo'), (req, res) => {

@@ -66,6 +66,11 @@ const ExamAttempt = sequelize.define('ExamAttempt', {
     defaultValue: false,
     field: 'is_submitted',
   },
+  trainingType: {
+    type: DataTypes.STRING(20),
+    defaultValue: 'cyber',
+    field: 'training_type',
+  },
 }, {
   tableName: 'exam_attempts',
   timestamps: true,

@@ -3,18 +3,29 @@ import Layout from '../../components/common/Layout';
 import api from '../../utils/api';
 import {
   UserPlus, Search, CheckCircle, XCircle,
-  Clock, RotateCcw, Key, Trash2, AlertTriangle, X, Copy, Eye, EyeOff, Lock
+  Clock, RotateCcw, Key, Trash2, AlertTriangle, X, Copy, Eye, EyeOff,
+  Lock, HeartHandshake, HardHat,
 } from 'lucide-react';
 
-const StatusBadge = ({ user }) => {
-  if (user.examPassed) return <span className="badge badge-success"><CheckCircle size={11} />עבר</span>;
-  if (user.examCompletedAt && user.examLockedByAdmin) return <span className="badge badge-danger"><Lock size={11} />נעול</span>;
-  if (user.examCompletedAt) return <span className="badge badge-danger"><XCircle size={11} />נכשל</span>;
-  if (user.examLockedByAdmin) return <span className="badge badge-warning"><Lock size={11} />בבחינה</span>;
-  if (user.trainingCompletedAt) return <span className="badge badge-warning"><Clock size={11} />לפני בחינה</span>;
-  if (user.trainingStartedAt) return <span className="badge badge-info"><Clock size={11} />בהדרכה</span>;
-  return <span className="badge badge-gray">לא התחיל</span>;
+const MODULES = [
+  { type: 'cyber',  label: 'אבטחת מידע',          Icon: Lock },
+  { type: 'haras',  label: 'מניעת הטרדה מינית',   Icon: HeartHandshake },
+  { type: 'safety', label: 'בטיחות במקום העבודה', Icon: HardHat },
+];
+
+const getProgress = (user, type) =>
+  user.moduleProgress?.find(p => p.trainingType === type) ?? null;
+
+const ModuleStatusBadge = ({ progress }) => {
+  if (!progress?.trainingStartedAt)               return <span className="badge badge-gray">לא התחיל</span>;
+  if (progress.examPassed)                         return <span className="badge badge-success"><CheckCircle size={11} />עבר</span>;
+  if (progress.examCompletedAt && progress.examLockedByAdmin) return <span className="badge badge-danger"><Lock size={11} />נעול</span>;
+  if (progress.examCompletedAt)                    return <span className="badge badge-danger"><XCircle size={11} />נכשל</span>;
+  if (progress.trainingCompletedAt)                return <span className="badge badge-warning"><Clock size={11} />לפני בחינה</span>;
+  return <span className="badge badge-info"><Clock size={11} />בהדרכה</span>;
 };
+
+// ─── Modals ──────────────────────────────────────────────────────────────────
 
 const Modal = ({ title, children, onClose }) => (
   <div className="modal-overlay" onClick={onClose}>
@@ -39,28 +50,26 @@ const PasswordRevealModal = ({ name, password, onClose, mode }) => {
     });
   };
 
-  const isReset = mode === 'reset';
-
   return (
-    <Modal title={isReset ? 'סיסמה אופסה' : 'סיסמה זמנית נוצרה'} onClose={onClose}>
+    <Modal title={mode === 'reset' ? 'סיסמה אופסה' : 'סיסמה זמנית נוצרה'} onClose={onClose}>
       <div className="modal-body">
         <div className="alert alert-success" style={{ marginBottom: '1rem' }}>
           <CheckCircle size={14} />
-          {isReset ? <>הסיסמה של <strong>{name}</strong> אופסה בהצלחה</> : <>המשתמש <strong>{name}</strong> נוצר בהצלחה</>}
+          {mode === 'reset'
+            ? <><strong>{name}</strong> — הסיסמה אופסה בהצלחה</>
+            : <><strong>{name}</strong> — המשתמש נוצר בהצלחה</>}
         </div>
         <p style={{ marginBottom: '0.75rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-          יש למסור את הסיסמה הזמנית הזו למשתמש. לאחר הכניסה מומלץ לשנות אותה.
+          יש למסור את הסיסמה הזמנית הזו למשתמש.
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '0.75rem 1rem' }}>
           <span style={{ flex: 1, fontFamily: 'monospace', fontSize: '1.1rem', letterSpacing: '0.05em', direction: 'ltr', textAlign: 'left' }}>
             {show ? password : '•'.repeat(password.length)}
           </span>
-          <button onClick={() => setShow(s => !s)} title={show ? 'הסתר' : 'הצג'}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.25rem' }}>
+          <button onClick={() => setShow(s => !s)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.25rem' }}>
             {show ? <EyeOff size={18} /> : <Eye size={18} />}
           </button>
-          <button onClick={copy} title="העתק"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: copied ? 'var(--success)' : 'var(--text-secondary)', padding: '0.25rem' }}>
+          <button onClick={copy} style={{ background: 'none', border: 'none', cursor: 'pointer', color: copied ? 'var(--success)' : 'var(--text-secondary)', padding: '0.25rem' }}>
             <Copy size={18} />
           </button>
         </div>
@@ -119,8 +128,7 @@ const CreateUserModal = ({ onClose, onSuccess }) => {
             </select>
           </div>
           <div className="alert alert-info" style={{ fontSize: '0.83rem' }}>
-            <AlertTriangle size={14} />
-            הסיסמה הזמנית תוצג מיד לאחר יצירת המשתמש.
+            <AlertTriangle size={14} />הסיסמה הזמנית תוצג מיד לאחר יצירת המשתמש.
           </div>
         </div>
         <div className="modal-footer">
@@ -134,14 +142,21 @@ const CreateUserModal = ({ onClose, onSuccess }) => {
   );
 };
 
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [actionLoading, setActionLoading] = useState('');
-  const [msg, setMsg] = useState('');
-  const [resetPassword, setResetPassword] = useState(null); // { name, password }
+  const [msg, setMsg] = useState({ text: '', type: 'success' });
+  const [resetPassword, setResetPassword] = useState(null);
+
+  const flash = (text, type = 'success') => {
+    setMsg({ text, type });
+    setTimeout(() => setMsg({ text: '', type: 'success' }), 4000);
+  };
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -155,15 +170,13 @@ export default function AdminUsers() {
     return () => clearTimeout(t);
   }, [loadUsers]);
 
-  const action = async (type, userId, userName) => {
-    const labels = {
-      resetExam: 'שחרור לבחינה נוספת', resetPassword: 'איפוס סיסמה', delete: 'מחיקת המשתמש'
-    };
-    if (!window.confirm(`האם לבצע ${labels[type]}?`)) return;
+  // User-level actions (password reset, delete)
+  const userAction = async (type, userId, userName) => {
+    const labels = { resetPassword: 'איפוס סיסמה', delete: 'מחיקת המשתמש' };
+    if (!window.confirm(`האם לבצע ${labels[type]} עבור ${userName}?`)) return;
     setActionLoading(`${type}-${userId}`);
     try {
       const endpoints = {
-        resetExam: `/admin/users/${userId}/reset-exam`,
         resetPassword: `/admin/users/${userId}/reset-password`,
         delete: `/admin/users/${userId}`,
       };
@@ -172,21 +185,38 @@ export default function AdminUsers() {
       if (type === 'resetPassword' && data.tempPassword) {
         setResetPassword({ name: userName, password: data.tempPassword, mode: 'reset' });
       } else {
-        setMsg(data.message || 'הפעולה בוצעה');
-        setTimeout(() => setMsg(''), 4000);
+        flash(data.message || 'הפעולה בוצעה');
       }
       loadUsers();
     } catch (err) {
-      setMsg(err.response?.data?.error || 'שגיאה');
-      setTimeout(() => setMsg(''), 4000);
+      flash(err.response?.data?.error || 'שגיאה', 'error');
     } finally {
       setActionLoading('');
     }
   };
 
+  // Module-level action: reset exam for a specific trainingType
+  const resetExam = async (userId, userName, trainingType) => {
+    const moduleLabel = MODULES.find(m => m.type === trainingType)?.label || trainingType;
+    if (!window.confirm(`לאפס את בחינת "${moduleLabel}" עבור ${userName}?`)) return;
+    setActionLoading(`resetExam-${userId}-${trainingType}`);
+    try {
+      const { data } = await api.post(`/admin/users/${userId}/reset-exam`, { trainingType });
+      flash(data.message || 'הבחינה אופסה');
+      loadUsers();
+    } catch (err) {
+      flash(err.response?.data?.error || 'שגיאה', 'error');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const numCols = 8; // for colspan on loading/empty rows
+
   return (
     <Layout>
-      <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>ניהול עובדים</h1>
@@ -197,7 +227,11 @@ export default function AdminUsers() {
           </button>
         </div>
 
-        {msg && <div className={`alert ${msg.includes('שגיאה') ? 'alert-error' : 'alert-success'}`} style={{ marginBottom: '1rem' }}><CheckCircle size={14} />{msg}</div>}
+        {msg.text && (
+          <div className={`alert ${msg.type === 'error' ? 'alert-error' : 'alert-success'}`} style={{ marginBottom: '1rem' }}>
+            <CheckCircle size={14} />{msg.text}
+          </div>
+        )}
 
         {/* Search */}
         <div style={{ position: 'relative', marginBottom: '1.25rem', maxWidth: 360 }}>
@@ -214,50 +248,112 @@ export default function AdminUsers() {
                 <th>שם</th>
                 <th>אימייל</th>
                 <th>מחלקה</th>
+                <th>מודול</th>
                 <th>סטטוס</th>
-                <th>ניסיונות</th>
+                <th style={{ textAlign: 'center' }}>ניסיונות</th>
+                <th style={{ textAlign: 'center' }}>איפוס בחינה</th>
                 <th>כניסה אחרונה</th>
                 <th>פעולות</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}><div className="spinner" style={{ margin: 'auto' }} /></td></tr>
+                <tr><td colSpan={numCols} style={{ textAlign: 'center', padding: '2rem' }}><div className="spinner" style={{ margin: 'auto' }} /></td></tr>
               ) : users.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>לא נמצאו עובדים</td></tr>
-              ) : users.map(u => (
-                <tr key={u.id}>
-                  <td style={{ fontWeight: 600 }}>{u.name}</td>
-                  <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', direction: 'ltr' }}>{u.email}</td>
-                  <td style={{ color: 'var(--text-secondary)' }}>{u.department || '—'}</td>
-                  <td><StatusBadge user={u} /></td>
-                  <td style={{ textAlign: 'center' }}>{u.examAttempts || 0}</td>
-                  <td style={{ color: 'var(--text-secondary)', fontSize: '0.83rem' }}>
-                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('he-IL') : '—'}
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '0.35rem' }}>
-                      <button title="שחרר לבחינה נוספת" className="btn btn-ghost btn-sm"
-                        disabled={!!actionLoading} onClick={() => action('resetExam', u.id, u.name)}
-                        style={{ padding: '0.4rem' }}>
-                        <RotateCcw size={14} color="var(--warning)" />
-                      </button>
-                      <button title="איפוס סיסמה" className="btn btn-ghost btn-sm"
-                        disabled={!!actionLoading} onClick={() => action('resetPassword', u.id, u.name)}
-                        style={{ padding: '0.4rem' }}>
-                        <Key size={14} color="var(--primary)" />
-                      </button>
-                      {u.role !== 'admin' && (
-                        <button title="מחק עובד" className="btn btn-ghost btn-sm"
-                          disabled={!!actionLoading} onClick={() => action('delete', u.id)}
-                          style={{ padding: '0.4rem' }}>
-                          <Trash2 size={14} color="var(--danger)" />
-                        </button>
+                <tr><td colSpan={numCols} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>לא נמצאו עובדים</td></tr>
+              ) : users.flatMap(u => {
+                const lastLogin = u.lastLoginAt
+                  ? new Date(u.lastLoginAt).toLocaleDateString('he-IL')
+                  : '—';
+
+                return MODULES.map((mod, mi) => {
+                  const progress = getProgress(u, mod.type);
+                  const isFirst = mi === 0;
+                  const loadKey = `resetExam-${u.id}-${mod.type}`;
+
+                  // Subtle top border to visually group user rows
+                  const rowStyle = isFirst
+                    ? { borderTop: '2px solid var(--border)' }
+                    : {};
+
+                  return (
+                    <tr key={`${u.id}-${mod.type}`} style={rowStyle}>
+                      {/* User-level cells — only on first module row */}
+                      {isFirst && (
+                        <>
+                          <td rowSpan={MODULES.length} style={{ fontWeight: 600, verticalAlign: 'middle' }}>{u.name}</td>
+                          <td rowSpan={MODULES.length} style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', direction: 'ltr', verticalAlign: 'middle' }}>{u.email}</td>
+                          <td rowSpan={MODULES.length} style={{ color: 'var(--text-secondary)', verticalAlign: 'middle' }}>{u.department || '—'}</td>
+                        </>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+
+                      {/* Module name */}
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text)' }}>
+                          <mod.Icon size={14} color="var(--primary)" style={{ flexShrink: 0 }} />
+                          {mod.label}
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td><ModuleStatusBadge progress={progress} /></td>
+
+                      {/* Attempts */}
+                      <td style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+                        {progress?.examAttempts || 0}
+                      </td>
+
+                      {/* Reset exam (per module) */}
+                      <td style={{ textAlign: 'center' }}>
+                        {progress?.trainingStartedAt ? (
+                          <button
+                            title={`איפוס בחינת ${mod.label}`}
+                            className="btn btn-ghost btn-sm"
+                            disabled={!!actionLoading}
+                            onClick={() => resetExam(u.id, u.name, mod.type)}
+                            style={{ padding: '0.4rem' }}
+                          >
+                            {actionLoading === loadKey
+                              ? <span className="spinner spinner-sm" />
+                              : <RotateCcw size={14} color="var(--warning)" />}
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--border)', fontSize: '0.8rem' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* Last login + user actions — only on first module row */}
+                      {isFirst && (
+                        <>
+                          <td rowSpan={MODULES.length} style={{ color: 'var(--text-secondary)', fontSize: '0.83rem', verticalAlign: 'middle' }}>
+                            {lastLogin}
+                          </td>
+                          <td rowSpan={MODULES.length} style={{ verticalAlign: 'middle' }}>
+                            <div style={{ display: 'flex', gap: '0.35rem' }}>
+                              <button title="איפוס סיסמה" className="btn btn-ghost btn-sm"
+                                disabled={!!actionLoading} onClick={() => userAction('resetPassword', u.id, u.name)}
+                                style={{ padding: '0.4rem' }}>
+                                {actionLoading === `resetPassword-${u.id}`
+                                  ? <span className="spinner spinner-sm" />
+                                  : <Key size={14} color="var(--primary)" />}
+                              </button>
+                              {u.role !== 'admin' && (
+                                <button title="מחק עובד" className="btn btn-ghost btn-sm"
+                                  disabled={!!actionLoading} onClick={() => userAction('delete', u.id, u.name)}
+                                  style={{ padding: '0.4rem' }}>
+                                  {actionLoading === `delete-${u.id}`
+                                    ? <span className="spinner spinner-sm" />
+                                    : <Trash2 size={14} color="var(--danger)" />}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                });
+              })}
             </tbody>
           </table>
         </div>

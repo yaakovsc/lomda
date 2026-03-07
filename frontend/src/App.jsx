@@ -4,7 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 // Pages
 import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
+import ModuleSelect from './pages/ModuleSelect';
 import Training from './pages/Training';
 import Exam from './pages/Exam';
 import Results from './pages/Results';
@@ -13,6 +13,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminExamConfig from './pages/admin/AdminExamConfig';
 import AdminReport from './pages/admin/AdminReport';
 import AdminUpdate from './pages/admin/AdminUpdate';
+import AdminSlides from './pages/admin/AdminSlides';
 
 // ─── Maintenance Overlay ─────────────────────────────────────────────────────
 const MaintenanceOverlay = () => {
@@ -74,15 +75,13 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
   return children;
 };
 
-// Smart home: regular users skip the dashboard entirely
+// Smart home: route to module selection for employees
 const UserHome = () => {
   const { user, loading } = useAuth();
   if (loading) return <div className="loading-screen"><div className="spinner"></div></div>;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role === 'admin') return <Navigate to="/admin" replace />;
-  if (user.examCompletedAt) return <Navigate to="/results" replace />;
-  if (user.trainingCompletedAt) return <Navigate to="/exam" replace />;
-  return <Navigate to="/training" replace />;
+  return <Navigate to="/modules" replace />;
 };
 
 const PublicRoute = ({ children }) => {
@@ -97,6 +96,7 @@ const AppRoutes = () => (
     <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
 
     <Route path="/" element={<UserHome />} />
+    <Route path="/modules" element={<ProtectedRoute><ModuleSelect /></ProtectedRoute>} />
     <Route path="/training" element={<ProtectedRoute><Training /></ProtectedRoute>} />
     <Route path="/exam" element={<ProtectedRoute><Exam /></ProtectedRoute>} />
     <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
@@ -106,6 +106,7 @@ const AppRoutes = () => (
     <Route path="/admin/exam-config" element={<ProtectedRoute adminOnly><AdminExamConfig /></ProtectedRoute>} />
     <Route path="/admin/report" element={<ProtectedRoute adminOnly><AdminReport /></ProtectedRoute>} />
     <Route path="/admin/update" element={<ProtectedRoute adminOnly><AdminUpdate /></ProtectedRoute>} />
+    <Route path="/admin/slides" element={<ProtectedRoute adminOnly><AdminSlides /></ProtectedRoute>} />
 
     <Route path="*" element={<Navigate to="/" replace />} />
   </Routes>

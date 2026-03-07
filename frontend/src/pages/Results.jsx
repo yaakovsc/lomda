@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Layout from '../components/common/Layout';
 import api from '../utils/api';
-import { CheckCircle, XCircle, Award, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, XCircle, Award, AlertTriangle, ChevronDown, ChevronUp, Home } from 'lucide-react';
 
 const QuestionResult = ({ result, index }) => {
   const [open, setOpen] = useState(false);
@@ -39,17 +39,23 @@ const QuestionResult = ({ result, index }) => {
 };
 
 export default function Results() {
-  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const trainingType = searchParams.get('type') || 'cyber';
+
   const [attempt, setAttempt] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/exam/my-result').then(({ data }) => setAttempt(data)).finally(() => setLoading(false));
-  }, []);
+    api.get(`/exam/my-result?type=${trainingType}`)
+      .then(({ data }) => setAttempt(data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [trainingType]);
 
   if (loading) return <Layout><div className="loading-screen"><div className="spinner" /></div></Layout>;
 
-  if (!attempt && user?.examCompletedAt) {
+  if (!attempt) {
     return (
       <Layout>
         <div style={{ maxWidth: 600, margin: '2rem auto' }}>
@@ -57,14 +63,17 @@ export default function Results() {
             <AlertTriangle size={18} />
             לא נמצאו נתוני בחינה. פנה לסמנכ"ל מערכות המידע.
           </div>
+          <button className="btn btn-outline btn-block" style={{ marginTop: '1rem' }} onClick={() => navigate('/modules')}>
+            <Home size={16} /> חזור לבחירת מודול
+          </button>
         </div>
       </Layout>
     );
   }
 
-  const score = attempt?.score ?? user?.examScore ?? 0;
+  const score = attempt?.score ?? 0;
   const total = attempt?.totalQuestions ?? 10;
-  const passed = attempt?.passed ?? user?.examPassed;
+  const passed = attempt?.passed;
   const results = attempt?.results || [];
   const pct = Math.round((score / total) * 100);
 
@@ -120,6 +129,17 @@ export default function Results() {
             </div>
           </div>
         )}
+
+        {/* Back to modules */}
+        <div style={{ marginBottom: '1.5rem' }}>
+          <button
+            className="btn btn-outline btn-block"
+            onClick={() => navigate('/modules')}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+          >
+            <Home size={16} /> חזור לבחירת מודול
+          </button>
+        </div>
 
         {/* Questions Review */}
         {results.length > 0 && (

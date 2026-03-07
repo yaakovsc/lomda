@@ -5,9 +5,42 @@ import api from '../../utils/api';
 
 const IDLE_MS = 5 * 60 * 1000; // 5 minutes of inactivity → force logout
 import {
-  Home, BarChart2,
-  Users, Settings, LogOut, Menu, X, Shield, CloudDownload
+  Home, BarChart2, BookOpen,
+  Users, Settings, LogOut, Menu, X, Shield, CloudDownload, Lock, HeartHandshake, HardHat,
 } from 'lucide-react';
+
+const MODULES = [
+  { type: 'cyber',  label: 'אבטחת מידע',              Icon: Lock },
+  { type: 'haras',  label: 'מניעת הטרדה מינית',       Icon: HeartHandshake },
+  { type: 'safety', label: 'בטיחות במקום העבודה',     Icon: HardHat },
+];
+
+const ModuleNavLink = ({ type, label, Icon, onClick }) => {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const active = params.get('type') === type ||
+    (!params.get('type') && type === 'cyber' && ['/training', '/exam', '/results'].includes(location.pathname)) ||
+    (params.get('type') === 'safety' && type === 'safety');
+  return (
+    <Link
+      to={`/exam?type=${type}`}
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '0.6rem',
+        padding: '0.65rem 1rem', borderRadius: '8px', textDecoration: 'none',
+        color: active ? 'white' : 'rgba(255,255,255,0.75)',
+        background: active ? 'rgba(255,255,255,0.15)' : 'transparent',
+        fontWeight: active ? 700 : 500, fontSize: '0.92rem',
+        transition: 'all 0.2s', marginBottom: '2px',
+      }}
+      onMouseOver={e => { if (!active) e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+      onMouseOut={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+    >
+      <Icon size={18} />
+      <span style={{ flex: 1 }}>{label}</span>
+    </Link>
+  );
+};
 
 const NavLink = ({ to, icon: Icon, label, onClick, badge }) => {
   const location = useLocation();
@@ -44,8 +77,17 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [enabledTypes, setEnabledTypes] = useState(null);
   const timerRef = useRef(null);
   const isAdmin = user?.role === 'admin';
+
+  // Fetch enabled modules once for non-admin users
+  useEffect(() => {
+    if (isAdmin || !user) return;
+    api.get('/training/modules')
+      .then(({ data }) => setEnabledTypes(data.filter(m => m.enabled).map(m => m.trainingType)))
+      .catch(() => setEnabledTypes(MODULES.map(m => m.type)));
+  }, [isAdmin, user]);
 
   // Poll for update status (admin only, every 5 min)
   const checkUpdate = useCallback(async () => {
@@ -95,11 +137,11 @@ export default function Layout({ children }) {
       <div style={{ padding: '1.5rem 1rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', marginBottom: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
           <div style={{ background: 'white', borderRadius: '10px', padding: '6px', display: 'flex', width: 44, height: 44, flexShrink: 0 }}>
-            <img src="/giron.png" alt="גירון" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <img src="/bakie.png" alt="בָּקִיא" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <div>
-            <div style={{ color: 'white', fontWeight: 800, fontSize: '1rem', lineHeight: 1.2 }}>הדרכת אבטחה</div>
-            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.78rem' }}>גירון פיתוח ובניה בע"מ</div>
+            <div style={{ color: 'white', fontWeight: 800, fontSize: '1rem', lineHeight: 1.2 }}>בָּקִיא — הדרכת עובדים</div>
+            <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.78rem' }}>קובי שלזינגר ייעוץ וליווי פרוייקטים</div>
           </div>
         </div>
         {/* User info */}
@@ -111,16 +153,24 @@ export default function Layout({ children }) {
         </div>
       </div>
 
-      {/* Navigation — admin only */}
+      {/* Navigation */}
       <nav style={{ flex: 1, padding: '0 0.75rem' }}>
-        {isAdmin && (
+        {isAdmin ? (
           <>
             <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', fontWeight: 700, padding: '0.75rem 0.5rem 0.25rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>ניהול</div>
             <NavLink to="/admin" icon={Home} label="לוח בקרה" onClick={() => setMobileOpen(false)} />
             <NavLink to="/admin/users" icon={Users} label="ניהול עובדים" onClick={() => setMobileOpen(false)} />
             <NavLink to="/admin/exam-config" icon={Settings} label="הגדרות בחינה" onClick={() => setMobileOpen(false)} />
+            <NavLink to="/admin/slides" icon={BookOpen} label="עריכת שקפים" onClick={() => setMobileOpen(false)} />
             <NavLink to="/admin/report" icon={BarChart2} label="דוח ציות" onClick={() => setMobileOpen(false)} />
             <NavLink to="/admin/update" icon={CloudDownload} label="עדכון מערכת" onClick={() => setMobileOpen(false)} badge={updateAvailable} />
+          </>
+        ) : (
+          <>
+            <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', fontWeight: 700, padding: '0.75rem 0.5rem 0.25rem', letterSpacing: '0.06em', textTransform: 'uppercase' }}>מודולים</div>
+            {MODULES.filter(m => !enabledTypes || enabledTypes.includes(m.type)).map(m => (
+              <ModuleNavLink key={m.type} type={m.type} label={m.label} Icon={m.Icon} onClick={() => setMobileOpen(false)} />
+            ))}
           </>
         )}
       </nav>

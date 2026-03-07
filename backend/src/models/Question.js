@@ -54,6 +54,16 @@ const Question = sequelize.define('Question', {
     defaultValue: 0,
     field: 'sort_order',
   },
+  isCustom: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'is_custom',
+  },
+  trainingType: {
+    type: DataTypes.STRING(20),
+    defaultValue: 'cyber',
+    field: 'training_type',
+  },
 }, {
   tableName: 'questions',
   timestamps: true,

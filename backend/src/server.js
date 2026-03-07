@@ -5,14 +5,18 @@ const { connectDB } = require('./config/database');
 const { sequelize } = require('./config/database');
 const { verifyConnection: verifyEmail } = require('./config/email');
 const logger = require('./config/logger');
-const { User, Question, ExamAttempt, ExamConfig } = require('./models');
-const { seedQuestions } = require('./utils/seed');
+const { User, Question, ExamAttempt, ExamConfig, TrainingSlide } = require('./models');
+const { seedQuestions, seedSlides, seedHarasSlides, seedHarasQuestions, seedSafetySlides, seedSafetyQuestions } = require('./utils/seed');
+const { migrate } = require('./utils/migrate');
 const updateService = require('./services/updateService');
 
 const PORT = process.env.PORT || 3001;
 
 const initializeDatabase = async () => {
-  // Sync all models
+  // Run idempotent migrations first (adds columns/tables for existing installs)
+  await migrate();
+
+  // Sync all models (creates new tables from model definitions)
   await sequelize.sync({ alter: false });
   logger.info('Database models synchronized');
 
@@ -34,14 +38,27 @@ const initializeDatabase = async () => {
     logger.info('Default admin account created', { email: adminEmail });
   }
 
-  // Ensure exam config singleton exists
+  // Ensure exam config rows exist (one per module)
   await ExamConfig.findOrCreate({
-    where: { id: 1 },
+    where: { trainingType: 'cyber' },
+    defaults: { selectedQuestionIds: [], randomizeOrder: true, passingScore: 8 },
+  });
+  await ExamConfig.findOrCreate({
+    where: { trainingType: 'haras' },
+    defaults: { selectedQuestionIds: [], randomizeOrder: true, passingScore: 8 },
+  });
+  await ExamConfig.findOrCreate({
+    where: { trainingType: 'safety' },
     defaults: { selectedQuestionIds: [], randomizeOrder: true, passingScore: 8 },
   });
 
-  // Seed questions if not already present
+  // Seed questions and slides if not already present
   await seedQuestions(Question, ExamConfig);
+  await seedSlides(TrainingSlide);
+  await seedHarasSlides(TrainingSlide);
+  await seedHarasQuestions(Question, ExamConfig);
+  await seedSafetySlides(TrainingSlide);
+  await seedSafetyQuestions(Question, ExamConfig);
   logger.info('Database initialization complete');
 };
 

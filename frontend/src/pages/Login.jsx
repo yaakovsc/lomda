@@ -22,12 +22,8 @@ export default function Login() {
       const user = await login(form.email, form.password);
       if (user.role === 'admin') {
         navigate('/admin');
-      } else if (user.examCompletedAt) {
-        navigate('/results');
-      } else if (user.trainingCompletedAt) {
-        navigate('/exam');
       } else {
-        navigate('/training');
+        navigate('/modules');
       }
     } catch (err) {
       setError(err.response?.data?.error || 'אירעה שגיאה. אנא נסה שוב.');
@@ -58,13 +54,13 @@ export default function Login() {
             borderRadius: '20px', marginBottom: '1rem',
             padding: '0.6rem', boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
           }}>
-            <img src="/giron.png" alt="גירון" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <img src="/bakie.png" alt="בָּקִיא" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
           </div>
           <h1 style={{ color: 'white', fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.25rem' }}>
-            הדרכת אבטחת מידע
+            ״בָּקִיא״ הדרכת עובדים
           </h1>
-          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.95rem' }}>
-            גירון פיתוח ובניה בע"מ
+          <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.9rem' }}>
+            קובי שלזינגר ייעוץ וליווי פרוייקטים
           </p>
         </div>
 
@@ -153,7 +149,7 @@ export default function Login() {
         </div>
 
         <p style={{ textAlign: 'center', color: 'rgba(255,255,255,0.4)', fontSize: '0.78rem', marginTop: '1.5rem' }}>
-          מערכת פנימית מאובטחת | גירון פיתוח ובניה בע"מ
+          מערכת פנימית מאובטחת | קובי שלזינגר 054-5664594
         </p>
       </div>
     </div>

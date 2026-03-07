@@ -79,6 +79,34 @@ CREATE TABLE IF NOT EXISTS exam_config (
     CONSTRAINT only_one_row CHECK (id = 1)
 );
 
+CREATE TABLE IF NOT EXISTS training_slides (
+    id INTEGER PRIMARY KEY,
+    order_index INTEGER NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    icon VARCHAR(10),
+    color VARCHAR(20),
+    content TEXT NOT NULL,
+    key_points JSONB DEFAULT '[]',
+    is_custom BOOLEAN DEFAULT false,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS company_settings (
+    key VARCHAR(100) PRIMARY KEY,
+    value TEXT,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO company_settings (key, value) VALUES
+    ('company_name', 'גירון פיתוח ובניה בע"מ'),
+    ('primary_color', '#1a3a6b'),
+    ('logo_url', '/giron.png')
+ON CONFLICT (key) DO NOTHING;
+
+-- is_custom separates default content from customer-specific overrides
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS is_custom BOOLEAN DEFAULT false;
+
 -- =============================================================
 -- INDEXES
 -- =============================================================

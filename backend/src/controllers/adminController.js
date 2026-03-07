@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
-const { User, Question, ExamAttempt, ExamConfig } = require('../models');
+const { User, Question, ExamAttempt, ExamConfig, UserModuleProgress, TrainingSlide } = require('../models');
 const logger = require('../config/logger');
 const emailService = require('../services/emailService');
 
@@ -28,6 +28,7 @@ const adminController = {
         limit: parseInt(limit),
         offset: (parseInt(page) - 1) * parseInt(limit),
         scope: 'adminView',
+        include: [{ model: UserModuleProgress, as: 'moduleProgress' }],
       });
 
       res.json({ total: count, page: parseInt(page), users: rows });
@@ -109,21 +110,19 @@ const adminController = {
   async resetUserExam(req, res, next) {
     try {
       const { id } = req.params;
+      const trainingType = req.body.trainingType || 'cyber';
+
       const user = await User.findByPk(id);
       if (!user) return res.status(404).json({ error: 'משתמש לא נמצא' });
 
-      await user.update({
-        examCompletedAt: null,
-        examScore: null,
-        examPassed: null,
-        examAttempts: 0,
-        examLockedByAdmin: false,
-      });
+      await UserModuleProgress.update(
+        { examCompletedAt: null, examScore: null, examPassed: null, examAttempts: 0, examLockedByAdmin: false },
+        { where: { userId: id, trainingType } }
+      );
 
-      // Delete all exam attempts
-      await ExamAttempt.destroy({ where: { userId: id } });
+      await ExamAttempt.destroy({ where: { userId: id, trainingType } });
 
-      logger.audit('EXAM_RESET', req.user.id, { targetUserId: id });
+      logger.audit('EXAM_RESET', req.user.id, { targetUserId: id, trainingType });
       res.json({ message: 'הבחינה אופסה בהצלחה. המשתמש יוכל לגשת שוב לבחינה.' });
     } catch (err) {
       next(err);
@@ -133,22 +132,28 @@ const adminController = {
   async resetUserTraining(req, res, next) {
     try {
       const { id } = req.params;
+      const trainingType = req.body.trainingType || 'cyber';
+
       const user = await User.findByPk(id);
       if (!user) return res.status(404).json({ error: 'משתמש לא נמצא' });
 
-      await user.update({
-        trainingStartedAt: null,
-        trainingCompletedAt: null,
-        trainingSlideProgress: 0,
-        examCompletedAt: null,
-        examScore: null,
-        examPassed: null,
-        examAttempts: 0,
-      });
+      await UserModuleProgress.update(
+        {
+          trainingStartedAt: null,
+          trainingCompletedAt: null,
+          trainingSlideProgress: 0,
+          examCompletedAt: null,
+          examScore: null,
+          examPassed: null,
+          examAttempts: 0,
+          examLockedByAdmin: false,
+        },
+        { where: { userId: id, trainingType } }
+      );
 
-      await ExamAttempt.destroy({ where: { userId: id } });
+      await ExamAttempt.destroy({ where: { userId: id, trainingType } });
 
-      logger.audit('TRAINING_RESET', req.user.id, { targetUserId: id });
+      logger.audit('TRAINING_RESET', req.user.id, { targetUserId: id, trainingType });
       res.json({ message: 'ההדרכה והבחינה אופסו. המשתמש יצטרך לעבור את ההדרכה מחדש.' });
     } catch (err) {
       next(err);
@@ -181,7 +186,9 @@ const adminController = {
 
   async getQuestions(req, res, next) {
     try {
+      const trainingType = req.query.type || 'cyber';
       const questions = await Question.findAll({
+        where: { trainingType },
         order: [['sortOrder', 'ASC'], ['id', 'ASC']],
       });
       res.json(questions);
@@ -210,12 +217,42 @@ const adminController = {
     }
   },
 
+  // ─── Slides ────────────────────────────────────────────────────
+
+  async getSlides(req, res, next) {
+    try {
+      const trainingType = req.query.type || 'cyber';
+      const slides = await TrainingSlide.findAll({
+        where: { trainingType },
+        order: [['orderIndex', 'ASC']],
+      });
+      res.json(slides);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateSlide(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { title, content, keyPoints } = req.body;
+      const slide = await TrainingSlide.findByPk(id);
+      if (!slide) return res.status(404).json({ error: 'שקף לא נמצא' });
+      await slide.update({ title, content, keyPoints });
+      logger.audit('SLIDE_UPDATED', req.user.id, { slideId: id, title });
+      res.json(slide);
+    } catch (err) {
+      next(err);
+    }
+  },
+
   // ─── Exam Config ───────────────────────────────────────────────
 
   async getExamConfig(req, res, next) {
     try {
+      const trainingType = req.query.type || 'cyber';
       const [config] = await ExamConfig.findOrCreate({
-        where: { id: 1 },
+        where: { trainingType },
         defaults: { selectedQuestionIds: [], randomizeOrder: true, passingScore: 8 },
       });
       res.json(config);
@@ -226,14 +263,15 @@ const adminController = {
 
   async updateExamConfig(req, res, next) {
     try {
-      const { selectedQuestionIds, randomizeOrder, passingScore } = req.body;
+      const { selectedQuestionIds, randomizeOrder, passingScore, trainingType: tt } = req.body;
+      const trainingType = tt || 'cyber';
 
       if (!Array.isArray(selectedQuestionIds) || selectedQuestionIds.length !== 10) {
         return res.status(400).json({ error: 'יש לבחור בדיוק 10 שאלות לבחינה' });
       }
 
       const [config] = await ExamConfig.findOrCreate({
-        where: { id: 1 },
+        where: { trainingType },
         defaults: {},
       });
 
@@ -244,12 +282,30 @@ const adminController = {
         updatedBy: req.user.id,
       });
 
-      // Mark selected questions
-      await Question.update({ isExamQuestion: false }, { where: {} });
+      // Mark selected questions for this training type only
+      await Question.update({ isExamQuestion: false }, { where: { trainingType } });
       await Question.update({ isExamQuestion: true }, { where: { id: selectedQuestionIds } });
 
-      logger.audit('EXAM_CONFIG_UPDATED', req.user.id, { selectedQuestionIds });
+      logger.audit('EXAM_CONFIG_UPDATED', req.user.id, { selectedQuestionIds, trainingType });
       res.json(config);
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async toggleModule(req, res, next) {
+    try {
+      const { trainingType, enabled } = req.body;
+      if (!trainingType || typeof enabled !== 'boolean') {
+        return res.status(400).json({ error: 'trainingType and enabled (boolean) required' });
+      }
+      const [config] = await ExamConfig.findOrCreate({
+        where: { trainingType },
+        defaults: { selectedQuestionIds: [], randomizeOrder: true, passingScore: 8, enabled: true },
+      });
+      await config.update({ enabled });
+      logger.audit('MODULE_TOGGLED', req.user.id, { trainingType, enabled });
+      res.json({ trainingType, enabled });
     } catch (err) {
       next(err);
     }
@@ -259,6 +315,9 @@ const adminController = {
 
   async getDashboardStats(req, res, next) {
     try {
+      const type = req.query.type || 'cyber';
+      const typeFilter = type === 'all' ? {} : { trainingType: type };
+
       const [
         totalUsers,
         activeUsers,
@@ -269,11 +328,11 @@ const adminController = {
       ] = await Promise.all([
         User.count({ where: { role: 'employee' } }),
         User.count({ where: { role: 'employee', isActive: true } }),
-        User.count({ where: { role: 'employee', trainingCompletedAt: { [Op.ne]: null } } }),
-        User.count({ where: { role: 'employee', examPassed: true } }),
-        User.count({ where: { role: 'employee', examPassed: false, examCompletedAt: { [Op.ne]: null } } }),
+        UserModuleProgress.count({ where: { ...typeFilter, trainingCompletedAt: { [Op.ne]: null } } }),
+        UserModuleProgress.count({ where: { ...typeFilter, examPassed: true } }),
+        UserModuleProgress.count({ where: { ...typeFilter, examPassed: false, examCompletedAt: { [Op.ne]: null } } }),
         ExamAttempt.findAll({
-          where: { isSubmitted: true },
+          where: { isSubmitted: true, ...(type !== 'all' ? { trainingType: type } : {}) },
           order: [['completedAt', 'DESC']],
           limit: 10,
           include: [{ model: User, as: 'user', attributes: ['name', 'email', 'department'] }],
@@ -301,12 +360,8 @@ const adminController = {
       const users = await User.findAll({
         where: { role: 'employee' },
         order: [['name', 'ASC']],
-        attributes: [
-          'id', 'name', 'email', 'department', 'isActive',
-          'trainingStartedAt', 'trainingCompletedAt',
-          'examCompletedAt', 'examScore', 'examPassed', 'examAttempts',
-          'lastLoginAt', 'createdAt',
-        ],
+        attributes: ['id', 'name', 'email', 'department', 'isActive', 'lastLoginAt', 'createdAt'],
+        include: [{ model: UserModuleProgress, as: 'moduleProgress' }],
       });
 
       res.json(users);

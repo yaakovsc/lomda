@@ -1,12 +1,17 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 
-// Singleton config table — always one row (id=1)
+// One row per training module (trainingType is the logical key)
 const ExamConfig = sequelize.define('ExamConfig', {
   id: {
     type: DataTypes.INTEGER,
     primaryKey: true,
-    defaultValue: 1,
+    autoIncrement: true,
+  },
+  trainingType: {
+    type: DataTypes.STRING(20),
+    defaultValue: 'cyber',
+    field: 'training_type',
   },
   // Array of question IDs selected for exam (max 10 by business rule)
   selectedQuestionIds: {
@@ -24,6 +29,11 @@ const ExamConfig = sequelize.define('ExamConfig', {
     type: DataTypes.INTEGER,
     defaultValue: 8,
     field: 'passing_score',
+  },
+  enabled: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
+    field: 'enabled',
   },
   updatedBy: {
     type: DataTypes.UUID,
