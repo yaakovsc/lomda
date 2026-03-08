@@ -143,8 +143,7 @@ export default function Login() {
           </form>
 
           <p style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-            שכחת סיסמה?{' '}
-            <a href="/request-reset" style={{ color: 'var(--primary)', fontWeight: 600 }}>לחץ כאן</a>
+            שכחת סיסמה? פנה למנהל המערכת לאיפוס.
           </p>
         </div>
 
