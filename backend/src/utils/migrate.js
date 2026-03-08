@@ -55,9 +55,6 @@ async function migrate() {
   await q(`SELECT setval('exam_config_id_seq', COALESCE((SELECT MAX(id) FROM exam_config), 1), true)`);
   await q(`ALTER TABLE exam_config ALTER COLUMN id SET DEFAULT nextval('exam_config_id_seq')`);
 
-  // Unique index on training_type so findOrCreate can key on it
-  await q(`CREATE UNIQUE INDEX IF NOT EXISTS exam_config_training_type_idx ON exam_config (training_type)`);
-
   // Add training_type to training_slides (default 'cyber')
   await q(`ALTER TABLE training_slides ADD COLUMN IF NOT EXISTS training_type VARCHAR(20) NOT NULL DEFAULT 'cyber'`);
 
@@ -67,6 +64,9 @@ async function migrate() {
   // Add training_type to exam_config
   await q(`ALTER TABLE exam_config ADD COLUMN IF NOT EXISTS training_type VARCHAR(20) DEFAULT 'cyber'`);
   await q(`UPDATE exam_config SET training_type = 'cyber' WHERE training_type IS NULL`);
+
+  // Unique index on training_type so findOrCreate can key on it (must come after column is added)
+  await q(`CREATE UNIQUE INDEX IF NOT EXISTS exam_config_training_type_idx ON exam_config (training_type)`);
 
   // Add training_type to exam_attempts (default 'cyber')
   await q(`ALTER TABLE exam_attempts ADD COLUMN IF NOT EXISTS training_type VARCHAR(20) NOT NULL DEFAULT 'cyber'`);
