@@ -1,4 +1,4 @@
-# מערכת הדרכת אבטחת מידע — גירון ניהול נכסים
+# ״בָּקִיא״ — מערכת הדרכת עובדים
 
 [![Production Ready](https://img.shields.io/badge/Production-Ready-green)]()
 [![Hebrew RTL](https://img.shields.io/badge/Language-Hebrew%20RTL-blue)]()
@@ -8,18 +8,27 @@
 
 ## תיאור המערכת
 
-מערכת ווב מבוססת **Hebrew RTL** להדרכת אבטחת מידע ובחינה מקוונת לעובדי גירון ניהול נכסים.
+מערכת ווב מבוססת **Hebrew RTL** לניהול הדרכות ציות חובה לעובדים, הכוללת שלושה מודולים:
+
+| מודול | תיאור |
+|-------|--------|
+| 🔐 אבטחת מידע | הגנה מפישינג, כופרה, סיסמאות, VPN |
+| 🛡️ מניעת הטרדה מינית | חוק 1998, זיהוי, דיווח ואחריות מנהל |
+| 🦺 בטיחות במקום העבודה | נהלי בטיחות, ציוד מגן, חירום |
 
 ### תכונות עיקריות
 
 | תכונה | פירוט |
 |-------|--------|
-| מודול הדרכה | 15 שקפים + 20 תרחישים אינטראקטיביים עם משוב מיידי |
-| בחינה | 10 שאלות מתוך 20, ציון עובר 8/10 |
+| מודולי הדרכה | 20 שקפים + 6 תרחישים אינטראקטיביים לכל מודול |
+| בחינה | 10 שאלות אקראיות מתוך 20, ציון עובר 8/10 |
+| ניהול מודולים | הפעלה/השבתה של כל מודול בנפרד |
+| עריכת שקפים | עריכת טקסט שקפי הדרכה ישירות מהממשק |
 | מנהל מערכת | ניהול עובדים, הגדרת בחינה, דוחות ציות |
 | אבטחה | JWT, bcrypt, Helmet, Rate Limiting, HTTPS |
 | מייל | שליחה אוטומטית של הזמנות ותוצאות |
 | דוחות | יצוא CSV, לוח בקרה, ניטור ציות |
+| עדכון אוטומטי | מנגנון עדכון גרסה דרך ממשק המנהל |
 
 ---
 
@@ -54,7 +63,7 @@
 
 ```bash
 # 1. שכפל את הפרויקט
-git clone <repo-url> giron-security
+git clone https://github.com/yaakovsc/lomda.git giron-security
 cd giron-security
 
 # 2. הגדר משתני סביבה
@@ -65,7 +74,7 @@ nano .env   # ערוך את כל הפרמטרים
 cd nginx && ./generate-ssl.sh && cd ..
 
 # 4. הפעל את המערכת
-docker compose up -d
+docker compose up -d --build
 
 # 5. בדוק שהכל עלה
 docker compose ps
@@ -73,7 +82,7 @@ docker compose logs backend --tail=30
 ```
 
 ### גישה ראשונית
-- **URL:** https://security.giron.co.il (או כתובת השרת)
+- **URL:** https://[כתובת-השרת]
 - **אימייל מנהל:** הערך מ-`ADMIN_EMAIL` ב-.env
 - **סיסמה:** הערך מ-`ADMIN_PASSWORD` ב-.env
 
@@ -87,12 +96,12 @@ docker compose logs backend --tail=30
 |--------|--------|-------------|
 | `DB_PASSWORD` | סיסמת PostgreSQL | **חובה לשנות** |
 | `JWT_SECRET` | מפתח הצפנת JWT (64+ תווים) | **חובה לשנות** |
-| `ADMIN_EMAIL` | אימייל מנהל ראשי | admin@giron.co.il |
+| `ADMIN_EMAIL` | אימייל מנהל ראשי | — |
 | `ADMIN_PASSWORD` | סיסמת מנהל ראשי | **חובה לשנות** |
 | `SMTP_HOST` | שרת דואר יוצא | smtp.gmail.com |
 | `SMTP_USER` | שם משתמש SMTP | — |
 | `SMTP_PASS` | סיסמת/App Password SMTP | — |
-| `FRONTEND_URL` | כתובת המערכת (HTTPS) | https://security.giron.co.il |
+| `FRONTEND_URL` | כתובת המערכת (HTTPS) | — |
 
 ---
 
@@ -107,22 +116,30 @@ lomda/
 │   │   ├── models/    # Sequelize ORM Models
 │   │   ├── routes/    # API Routes
 │   │   ├── controllers/ # Business Logic
-│   │   └── services/  # Email Service
+│   │   ├── services/  # Email, Update Services
+│   │   └── utils/     # Migrate, Seed
 │   └── Dockerfile
 ├── frontend/          # React 18 + Vite (RTL)
 │   ├── src/
-│   │   ├── pages/     # Login, Training, Exam, Admin
-│   │   ├── components/ # Reusable UI
+│   │   ├── pages/     # Login, ModuleSelect, Training, Exam, Admin
+│   │   ├── components/ # Layout, common UI
 │   │   ├── context/   # AuthContext
-│   │   └── data/      # Slides & Questions content
+│   │   └── utils/     # API client (axios)
+│   ├── public/
+│   │   ├── bakie.png
+│   │   ├── slide-images/         # שקפי אבטחת מידע
+│   │   ├── slide-images-haras/   # שקפי הטרדה מינית
+│   │   └── slide-images-safety/  # שקפי בטיחות
 │   └── Dockerfile
 ├── database/
-│   └── init.sql       # Schema + 20 Hebrew Questions
+│   └── init.sql       # Schema
 ├── nginx/
 │   ├── nginx.conf     # Reverse Proxy + TLS
 │   └── generate-ssl.sh
+├── triggers/          # Update mechanism trigger files
 ├── docker-compose.yml        # Production
 ├── docker-compose.dev.yml    # Development (with MailHog)
+├── update-watcher.sh         # Auto-update cron script
 ├── .env.example
 └── README.md
 ```
@@ -141,16 +158,17 @@ lomda/
 ### Training
 | Method | Path | תיאור |
 |--------|------|--------|
-| GET | `/api/training/questions` | כל שאלות ההדרכה (עם תשובות) |
-| POST | `/api/training/start` | סימון תחילת הדרכה |
-| POST | `/api/training/progress` | עדכון התקדמות |
-| POST | `/api/training/complete` | סיום הדרכה |
+| GET | `/api/training/modules` | רשימת מודולים ומצב הפעלה |
+| GET | `/api/training/my-progress` | התקדמות העובד בכל המודולים |
+| GET | `/api/training/slides?type=` | שקפי מודול |
+| POST | `/api/training/start?type=` | תחילת הדרכה |
+| POST | `/api/training/progress?type=` | עדכון התקדמות |
+| POST | `/api/training/complete?type=` | סיום הדרכה |
 
 ### Exam
 | Method | Path | תיאור |
 |--------|------|--------|
-| POST | `/api/exam/start` | פתיחת בחינה חדשה |
-| POST | `/api/exam/:id/answer` | שליחת תשובה |
+| POST | `/api/exam/start` | פתיחת בחינה (type בגוף) |
 | POST | `/api/exam/:id/submit` | הגשת הבחינה לציון |
 | GET | `/api/exam/my-result` | תוצאת הבחינה האחרונה |
 
@@ -160,7 +178,10 @@ lomda/
 | GET | `/api/admin/dashboard` | סטטיסטיקות |
 | GET/POST | `/api/admin/users` | ניהול עובדים |
 | POST | `/api/admin/users/:id/reset-exam` | איפוס בחינה |
-| GET/PUT | `/api/admin/exam-config` | הגדרת בחינה |
+| GET/PUT | `/api/admin/exam-config?type=` | הגדרת בחינה למודול |
+| PATCH | `/api/admin/exam-config/toggle` | הפעלה/השבתת מודול |
+| GET | `/api/admin/slides?type=` | שקפי מודול לעריכה |
+| PUT | `/api/admin/slides/:id` | עדכון שקף |
 | GET | `/api/admin/compliance-report` | דוח ציות מלא |
 
 ---
@@ -217,7 +238,7 @@ docker compose logs -f backend
 docker exec giron_backend cat logs/audit-$(date +%F).log
 
 # בדיקת בריאות
-curl https://security.giron.co.il/api/health
+curl -sk https://[כתובת-השרת]/api/health
 ```
 
 ---
@@ -234,4 +255,4 @@ curl https://security.giron.co.il/api/health
 
 ---
 
-*מערכת מסווגת לשימוש פנימי בלבד — גירון ניהול נכסים*
+*מערכת מסווגת לשימוש פנימי בלבד — קובי שלזינגר ייעוץ וליווי פרויקטים*

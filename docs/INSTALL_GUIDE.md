@@ -1,4 +1,4 @@
-# מדריך התקנה מלא — מערכת הדרכת אבטחת מידע גירון
+# מדריך התקנה מלא — ״בָּקִיא״ מערכת הדרכת עובדים
 
 ## דרישות מוקדמות
 
@@ -34,13 +34,6 @@ git clone https://github.com/yaakovsc/lomda.git /opt/giron-security
 cd /opt/giron-security
 ```
 
-> 💡 **עדכונים עתידיים:** לעדכון הקוד בלבד (ללא מחיקת נתונים) הרץ:
-> ```bash
-> cd /opt/giron-security
-> git pull origin main
-> docker compose up -d --build
-> ```
-
 ---
 
 ## שלב 2: הגדרת סיסמאות וטוקנים
@@ -74,43 +67,43 @@ nano .env
 | `DB_PASSWORD` | סיסמת PostgreSQL | פלט הפקודה מ-2א |
 | `JWT_SECRET` | חתימת JWT | פלט הפקודה מ-2א |
 | `SESSION_SECRET` | מפתח session | פלט הפקודה מ-2א |
-| `FRONTEND_URL` | כתובת המערכת | `https://security.giron.co.il` |
-| `ADMIN_EMAIL` | אימייל מנהל ראשי | `admin@giron.co.il` |
+| `FRONTEND_URL` | כתובת המערכת | `https://[כתובת-השרת]` |
+| `ADMIN_EMAIL` | אימייל מנהל ראשי | `admin@example.com` |
 | `ADMIN_PASSWORD` | סיסמת מנהל ראשי | בחר סיסמה חזקה — **שנה לאחר כניסה ראשונה!** |
 | `SMTP_HOST` | שרת דואל | `smtp.office365.com` / `smtp.gmail.com` |
-| `SMTP_USER` | חשבון שליחת מייל | `security-training@giron.co.il` |
+| `SMTP_USER` | חשבון שליחת מייל | כתובת המייל השולח |
 | `SMTP_PASS` | סיסמת חשבון מייל | סיסמת חשבון ה-SMTP |
-| `EMAIL_FROM` | שם שולח | `"הדרכת אבטחה גירון" <security-training@giron.co.il>` |
+| `EMAIL_FROM` | שם שולח | `"הדרכת עובדים" <training@example.com>` |
 
-### 2ד — קובץ .env לאחר עריכה (דוגמה מלאה)
+### 2ד — קובץ .env לאחר עריכה (דוגמה)
 
 ```env
 NODE_ENV=production
 PORT=3001
-FRONTEND_URL=https://security.giron.co.il
+FRONTEND_URL=https://training.example.com
 
 DB_HOST=postgres
 DB_PORT=5432
 DB_NAME=giron_security
 DB_USER=giron_user
-DB_PASSWORD=Xk9#mP2$qLr8vN4w     ← החלף בפלט מ-2א
+DB_PASSWORD=Xk9#mP2$qLr8vN4w
 
-JWT_SECRET=3f8a1b2c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a  ← 64 תווים hex
+JWT_SECRET=3f8a1b2c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a
 JWT_EXPIRES_IN=8h
 
 SMTP_HOST=smtp.office365.com
 SMTP_PORT=587
 SMTP_SECURE=false
-SMTP_USER=security-training@giron.co.il
+SMTP_USER=training@example.com
 SMTP_PASS=your-email-password-here
-EMAIL_FROM='"מערכת הדרכת אבטחה - גירון" <security-training@giron.co.il>'
+EMAIL_FROM='"מערכת הדרכת עובדים" <training@example.com>'
 
-ADMIN_EMAIL=admin@giron.co.il
-ADMIN_PASSWORD=Admin@Giron2026!   ← שנה לאחר כניסה ראשונה!
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=Admin@Strong2026!
 ADMIN_NAME=מנהל מערכת
 
 BCRYPT_ROUNDS=12
-SESSION_SECRET=2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d  ← החלף בפלט מ-2א
+SESSION_SECRET=2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d
 LOG_LEVEL=info
 ```
 
@@ -131,11 +124,11 @@ cd ..
 sudo apt install -y certbot
 
 # קבל תעודה (הפסק nginx זמנית)
-sudo certbot certonly --standalone -d security.giron.co.il
+sudo certbot certonly --standalone -d training.example.com
 
 # העתק תעודות
-sudo cp /etc/letsencrypt/live/security.giron.co.il/fullchain.pem nginx/ssl/cert.pem
-sudo cp /etc/letsencrypt/live/security.giron.co.il/privkey.pem nginx/ssl/key.pem
+sudo cp /etc/letsencrypt/live/training.example.com/fullchain.pem nginx/ssl/cert.pem
+sudo cp /etc/letsencrypt/live/training.example.com/privkey.pem nginx/ssl/key.pem
 ```
 
 ### אפשרות ג' — תעודת CA ארגונית
@@ -150,9 +143,8 @@ cp /path/to/your/key.pem nginx/ssl/key.pem
 ## שלב 4: עדכון nginx.conf לשם הדומיין שלך
 
 ```bash
-# ערוך את שם השרת
 nano nginx/nginx.conf
-# שנה: server_name security.giron.co.il;
+# שנה: server_name training.example.com;
 # לכתובת שלך
 ```
 
@@ -182,17 +174,39 @@ giron_nginx       Up              0.0.0.0:80->80, 0.0.0.0:443->443
 
 ---
 
-## שלב 6: כניסה ראשונה
+## שלב 6: הגדרת עדכון אוטומטי (cron)
 
-1. פתח דפדפן: `https://security.giron.co.il`
+המערכת כוללת מנגנון עדכון אוטומטי הפועל דרך ממשק המנהל.
+כדי שיעבוד, יש להגדיר cron job שמריץ את `update-watcher.sh` כל דקה:
+
+```bash
+# הוסף הרשאות הרצה
+chmod +x /opt/giron-security/update-watcher.sh
+
+# פתח את עורך ה-cron
+crontab -e
+
+# הוסף שורה זו:
+* * * * * /opt/giron-security/update-watcher.sh >> /opt/giron-security/logs/cron.log 2>&1
+```
+
+> 💡 ללא הגדרת ה-cron, ניתן עדיין לעדכן ידנית (ראה סעיף "עדכון ידני").
+
+---
+
+## שלב 7: כניסה ראשונה
+
+1. פתח דפדפן: `https://[כתובת-השרת]`
 2. היכנס עם: `ADMIN_EMAIL` + `ADMIN_PASSWORD` מה-.env
 3. **שנה סיסמה מיד!**
-4. עבור ל"הגדרות בחינה" וסמן את 20 שאלות הבחינה מתוך מאגר השאלות (המערכת תבחר 10 אקראיות בכל ניסיון)
+4. עבור ל"הגדרות בחינה":
+   - הפעל את המודולים הרצויים (מתג הפעלה)
+   - סמן 10–20 שאלות לכל מודול
 5. הוסף עובדים מ"ניהול עובדים"
 
 ---
 
-## שלב 7: הגדרת Firewall
+## שלב 8: הגדרת Firewall
 
 ```bash
 # אפשר רק HTTPS ו-SSH
@@ -219,15 +233,23 @@ sudo ufw status
 # הוסף לcrontab של שרת
 crontab -e
 
-# גיבוי יומי ב-02:00
-0 2 * * * docker exec giron_postgres pg_dump -U giron_user giron_security | gzip > /backups/giron-$(date +\%F).sql.gz
+# גיבוי יומי ב-03:00
+0 3 * * * docker exec giron_postgres pg_dump -U giron_user giron_security | gzip > /backups/giron-$(date +\%F).sql.gz
 # שמור 30 ימים
-0 3 * * * find /backups -name "giron-*.sql.gz" -mtime +30 -delete
+0 4 * * * find /backups -name "giron-*.sql.gz" -mtime +30 -delete
 ```
 
-### עדכון המערכת
+### עדכון מערכת
 
+#### דרך ממשק המנהל (מומלץ)
+1. כנס כמנהל → "עדכון מערכת"
+2. לחץ "עדכן עכשיו" או "עדכן הלילה ב-02:00"
+3. המערכת מטפלת בהכל אוטומטית
+
+#### עדכון ידני
 ```bash
+cd /opt/giron-security
+
 # עצור
 docker compose down
 
@@ -271,6 +293,17 @@ docker exec -it giron_postgres psql -U giron_user -d giron_security
 \dt
 SELECT COUNT(*) FROM questions;
 SELECT COUNT(*) FROM users;
+SELECT COUNT(*) FROM training_slides;
+```
+
+### מערכת תקועה ב"מצב תחזוקה"
+
+```bash
+# מחק את קובץ הטריגר
+rm /opt/giron-security/triggers/update.json
+
+# הפעל מחדש את הבקנד
+docker compose restart backend
 ```
 
 ### בעיות דואל
@@ -284,7 +317,7 @@ docker compose logs backend | grep -i smtp
 ### בדיקת SSL
 
 ```bash
-openssl s_client -connect security.giron.co.il:443 -brief
+openssl s_client -connect [כתובת-השרת]:443 -brief
 ```
 
 ---
@@ -295,6 +328,7 @@ openssl s_client -connect security.giron.co.il:443 -brief
 - [ ] שנה את `JWT_SECRET` ו-`DB_PASSWORD` לערכים ייחודיים
 - [ ] הפעל Firewall והגבל גישה
 - [ ] הגדר גיבוי אוטומטי
+- [ ] הגדר cron לעדכון אוטומטי
 - [ ] בדוק שהלוגים נכתבים: `docker compose logs backend`
 - [ ] הגדר ניטור uptime (UptimeRobot, Zabbix)
 - [ ] וודא ש-SSL תקין ותאריך פקיעה ידוע

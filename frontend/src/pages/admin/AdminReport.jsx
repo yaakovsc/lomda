@@ -91,7 +91,7 @@ export default function AdminReport() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `giron-compliance-${new Date().toLocaleDateString('he-IL').replace(/\//g, '-')}.csv`;
+    a.download = `compliance-${new Date().toLocaleDateString('he-IL').replace(/\//g, '-')}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
