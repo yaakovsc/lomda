@@ -25,7 +25,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401 && !error.config?.url?.includes('/auth/login')) {
       _token = null;
-      window.location.href = '/login?expired=1';
+      sessionStorage.setItem('auth_expired', '1');
+      window.location.href = '/login';
     }
     if (error.response?.status === 503 && error.response?.data?.maintenance) {
       window.dispatchEvent(new CustomEvent('maintenance', { detail: error.response.data }));

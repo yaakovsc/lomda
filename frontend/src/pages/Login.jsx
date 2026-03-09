@@ -1,18 +1,23 @@
-import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [expired, setExpired] = useState(false);
 
-  const expired = params.get('expired');
+  useEffect(() => {
+    if (sessionStorage.getItem('auth_expired') === '1') {
+      sessionStorage.removeItem('auth_expired');
+      setExpired(true);
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
