@@ -12,6 +12,13 @@ export default function Login() {
   const [error, setError] = useState('');
   const [expired, setExpired] = useState(false);
 
+  const HEBREW_TO_EN = {
+    'ש':'a','נ':'b','ב':'c','ג':'d','ק':'e','כ':'f','ע':'g','י':'h','ן':'i',
+    'ח':'j','ל':'k','ך':'l','צ':'m','מ':'n','ם':'o','פ':'p','ר':'r','ד':'s',
+    'א':'t','ו':'u','ה':'v','ס':'x','ט':'y','ז':'z','ץ':'.','ף':';','ת':',',
+  };
+  const convertEmail = (val) => val.split('').map(c => HEBREW_TO_EN[c] ?? c).join('');
+
   useEffect(() => {
     if (sessionStorage.getItem('auth_expired') === '1') {
       sessionStorage.removeItem('auth_expired');
@@ -104,7 +111,7 @@ export default function Login() {
                   style={{ paddingRight: '2.5rem' }}
                   placeholder="name@giron.co.il"
                   value={form.email}
-                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  onChange={e => setForm(f => ({ ...f, email: convertEmail(e.target.value) }))}
                   required
                   autoComplete="email"
                   dir="ltr"
