@@ -106,13 +106,15 @@ export default function Login() {
                 <Mail size={16} style={{ position: 'absolute', right: '0.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
                 <input
                   id="email"
-                  type="email"
+                  type="text"
+                  inputMode="email"
                   className="form-input"
                   style={{ paddingRight: '2.5rem' }}
                   placeholder="name@giron.co.il"
                   value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: convertEmail(e.target.value) }))}
                   required
+                  pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
                   autoComplete="email"
                   dir="ltr"
                 />
